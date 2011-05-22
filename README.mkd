@@ -75,6 +75,12 @@ Written in Perl.
 * [GoGDownloader.sh](http://www.gog.com/en/forum/general/a_linux_downloader/page1)
 * [GOGDownloader (C++)](http://www.gog.com/en/forum/general/a_linux_downloader/page1)
 
+# Contact
+
+If you have any comments, suggestions, patches either submit them through the 
+project's [github page](https://github.com/asb/gogdl) or email 
+<asb@asbradbury.org>.
+
 ## License
 
 MIT license:
