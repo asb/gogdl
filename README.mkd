@@ -1,0 +1,103 @@
+# gogdl - yet another downloader for GOG.com
+
+## Description
+gogdl is an unofficial downloader for games (both the setup files and the 
+'extras') purchased from [GOG.com](http://www.gog.com). It is currently 
+written in Lua, though acts as just a thin wrapper around wget which does all 
+the heavy lifting. I wrote it mainly for my own use, though others may find it 
+helpful if not already satisfied by one of the many alternatives (listed 
+below).
+
+## Requirements
+wget and Lua 5.1.
+
+## Usage
+The following (output from `gogdl help` should tell you enough to get 
+started):
+
+    Usage: gogdl ACTION [ARGS...]
+    Valid actions are:
+
+    help:
+      Shows this help message
+    login:
+      Prompts for username and password and retrieves a login cookie
+    getlist:
+      Retrieves the list of available downloads from your gog account
+    list [FILE_LIST]:
+      Lists the files available for download. Acts as a preview for what files 
+      would be downloaded for a certain input. See below for a description of 
+      FILE_LIST
+    download [FILE_LIST]:
+      Dowloads the specified file(s). See below for a description of FILE_LIST
+
+    The FILE_LIST can take the form of:
+    1) @gamename-all to download all files from a certain game, @gamename-setup 
+       for just the setup files or @gamename-extras for just the extras
+    2) A full URL of the form http://www.gog.com/en/download/*
+    3) An abbreviated url of the form /en/download/*
+
+    You will need to run gogdl getlist before @gamename-* can be matched, and 
+    of course you'll want to gogdl login before anything else. Example 
+    first-time usage:
+
+    gogdl login
+    gogdl getlist
+    gogdl download @the_longest_journey-all
+
+You can also set the environment variable `WGET_OPTS` to specify extra options 
+to you appended to the wget invocation to download each file (e.g.  
+`WGET_OPTS="--limit-rate=250k" gogdl download /en/download/game/the_longest_journey/0`).
+
+wget is fairly verbose by default so keeps you well informed on what is going 
+on. The `-c` option is passed to wget for downloads so the default behaviour 
+is to resume any download that is incomplete. However if the remote file was 
+updated since the last file was downloaded this will not work and will result 
+in a broken file, as is the case with the other unofficial downloaders.
+
+## Possible future functionality
+I expect I'll implement a `check` action which tells you which of the given 
+files you either don't have, or where the remote size is different to the 
+local file size (indicating either an incomplete download or that the remote 
+updated). It would also be good to investigate the protocol used by the 
+official GOG downloader to see if it's possible to get the checksums used for 
+verifying file integrity. Additionally, the code could be cleaned up.
+cleanup.
+
+## Alternatives
+These are the other GOG downloader implementations I know of:
+
+* [Official GOG downloader](http://www.gog.com/en/support/website_help/downloads_and_games)
+  See FAQ entry #6. Windows-only (though reported to work under Wine).
+* [JGoGdownloader](http://www.gog.com/en/forum/general/jgogdownloader)
+* [XGOG downloader](http://www.gog.com/en/forum/general/xgog_downloader)
+Written in Perl.
+* [GoGDownloader.sh](http://www.gog.com/en/forum/general/a_linux_downloader/page1)
+* [GOGDownloader (C++)](http://www.gog.com/en/forum/general/a_linux_downloader/page1)
+
+## License
+
+MIT license:
+
+    Copyright (c) 2011 Alex Bradbury
+
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without
+    restriction, including without limitation the rights to use,
+    copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following
+    conditions:
+
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    OTHER DEALINGS IN THE SOFTWARE.

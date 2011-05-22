@@ -1,0 +1,233 @@
+#!/usr/bin/env lua
+-- Part of gogdl by Alex Bradbury:
+-- https://github.com/asb/gogdl
+
+------ Settings
+local CONFIG_DIR = assert(os.getenv("HOME")).."/.gogdl"
+local COOKIE_JAR = CONFIG_DIR.."/cookiejar.txt"
+local FILE_LIST = CONFIG_DIR.."/available_files"
+local WGET_OPTS = os.getenv("WGET_OPTS") or ""
+
+------ Constants you shouldn't change
+local LOGIN_URL="https://www.gog.com/en/login"
+local ACCOUNT_URL = "https://www.gog.com/en/myaccount/"
+
+------ Generic helpers
+
+local function err_exit(msg, ...)
+  io.stderr:write(msg:format(...))
+  os.exit(1)
+end
+
+local function exec(command, ...)
+  local formatted = command:format(...)
+  local res = os.execute(command:format(...))
+  return res == 0, formatted
+end
+
+-- Exec and check result
+local function cexec(command, ...)
+  local res, comm = exec(command, ...)
+  if (not res) then
+    err_exit("Command: `%s` returned a non-zero exit value\n", comm)
+  end
+  return res
+end
+
+function url_encode(s)
+  s = string.gsub(s, "([&=+%c])", function (c)
+    return string.format("%%%02X", string.byte(c))
+  end)
+  s = string.gsub(s, " ", "+")
+  return s
+end
+
+local function capture(command, ...)
+  local pipe = assert(io.popen(command:format(...)))
+  local data = assert(pipe:read("*a"))
+  assert(pipe:close())
+  return data
+end
+
+local function uniq(t)
+  local newt = {}
+  local seen_vals = {}
+  for _, v in ipairs(t) do
+    if (not seen_vals[v]) then
+      seen_vals[v] = true
+      newt[#newt+1] = v
+    end
+  end
+  return newt
+end
+
+-- Ensure the config dir has been created
+cexec('mkdir -p "%s"', CONFIG_DIR)
+
+
+------ gogdl implementation
+local actions = {}
+actions.login = function(arg)
+  -- Get username and pass
+  io.stdout:write("GOG registered email: ")
+  local gog_email = assert(io.stdin:read("*l"))
+  io.stdout:write("GOG password: ")
+  cexec("stty -echo")
+  local gog_pass = assert(io.stdin:read("*l"))
+  cexec("stty echo")
+  io.stdout:write("\n")
+
+  cexec('wget -O /dev/null --save-cookie "%s" --post-data "log_email=%s&log_password=%s" "%s"',
+  COOKIE_JAR, url_encode(gog_email), url_encode(gog_pass), LOGIN_URL)
+  cexec('chmod 600 "%s"', COOKIE_JAR)
+  local cookies = assert(io.open(COOKIE_JAR):read("*a"))
+  -- Check login was successful by checking for the 'cu' cookie 
+  if (cookies:match("cu%s+[%w%%]+%n")) then
+    print("Login success")
+    os.exit(0)
+  else
+    err_exit("Login failed\n")
+  end
+end
+
+local function read_available_files()
+  local fh = io.open(FILE_LIST)
+  if not fh then
+    io.stderr:write("Warning: Not able to open the list of available files. Try gogdl getlist")
+    return {}
+  end
+  local list = {}
+  for line in fh:lines() do
+    list[#list+1] = line
+  end
+  assert(fh:close())
+  return list
+end
+
+local function interpret_list(arg, available_files)
+  local list = {}
+  for _, term in ipairs(arg) do
+    if term:match("^https?://") then
+      local relative_url = term:match("https?://www.gog.com(/en/download/.*)$")
+      if not relative_url then err_exit("Error: URL '%s' not recognised as a GOG download URL\n", term) end
+      list[#list+1] = relative_url
+    elseif term:match("([%w]+/[%w_]+/[%d]+)/?$") then
+      local relative_url = term:match("(file/[%w_]+/[%d]+)/?$") or term:match("(game/[%w_]+/[%d]+)/?$")
+      if not relative_url then err_exit("Error: URL fragment '%s' not recognised\n", term) end
+      list[#list+1] = "/en/download/"..relative_url
+    elseif term:match("^@") then
+      local add_setup = (term:match("%-all$") or term:match("%-setup")) and true or false
+      local add_extras = (term:match("%-all$") or term:match("%-extras")) and true or false
+      if (not add_setup and not add_extras) then err_exit("Error: @-style specifiers must end in -all, -setup, or -extras but '%s' does not\n", term) end
+      local gamename = term:match("^@([%w_]+)%-")
+      local had_a_match = false
+      for _, file_url in ipairs(available_files) do
+        if (add_setup and file_url:match("game/"..gamename.."/[%d]+$")) then
+          had_a_match = true
+          list[#list+1] = file_url
+        elseif (add_extras and file_url:match("file/"..gamename.."/[%d]+$")) then
+          had_a_match = true
+          list[#list+1] = file_url
+        end
+      end
+
+      if not had_a_match then err_exit("Error: Got no matches for '%s'. Try gogdl getlist, and if that is already up to date perhaps you don't own the game\n", term) end
+    else
+      err_exit("Error: Input '%s' is not recognised as a valid filter type\n", term)
+    end
+  end
+  local uniq_list = uniq(list)
+  return uniq_list
+end
+
+
+actions.download = function(arg)
+  local available_files = read_available_files()
+  local list = interpret_list(arg, available_files)
+  if (#list == 0) then err_exit("error: no download url specified\n") end
+  io.stderr:write("\n#### Downloading "..#list.." files\n\n")
+
+  for i, url_frag in ipairs(list) do
+    io.stderr:write("\n#### Downloading file "..i.."/"..#list.."\n\n")
+    local url = "http://www.gog.com"..url_frag
+
+    io.stderr:write("\n#### Retrieving filename\n\n")
+    local response = capture('wget -o /dev/stdout --spider --max-redirect=0 --load-cookies="%s" %s | tee /dev/stderr',
+    COOKIE_JAR, url)
+    local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+
+    io.stderr:write("\n#### Downloading file\n\n")
+    cexec('wget -O "%s" %s --load-cookies="%s" -c %s', filename, WGET_OPTS, COOKIE_JAR, url)
+  end
+end
+
+actions.getlist = function(arg)
+  -- This just gets the list, and extracts all the urls. Won't do filtering
+  io.stderr:write("\n#### Fetching game list\n\n")
+  local content = capture('wget -O - --load-cookies="%s" %s',
+    COOKIE_JAR, ACCOUNT_URL)
+  local urls = {}
+  for url in content:gmatch("(/en/download/%w+/[^\"]+)") do
+    urls[#urls+1] = url
+  end
+  if #urls == 0 then
+    err_exit("Failed to extract any available downloads (not logged in?) Try gogdl login\n")
+  end
+  local output = assert(io.open(FILE_LIST, "w"))
+  for _, url in ipairs(urls) do output:write(url, "\n") end
+  assert(output:close())
+  io.stderr:write("Successfully fetched file list\n")
+end
+
+
+actions.list = function(arg)
+  local available_files = read_available_files()
+  local list = interpret_list(arg, available_files)
+  if (#arg == 0) then list = available_files end
+
+  for _, v in ipairs(list) do print(v) end
+end
+
+actions.help = function(arg)
+  io.stderr:write([[
+Usage: gogdl ACTION [ARGS...]
+Valid actions are:
+
+help:
+  Shows this help message
+login:
+  Prompts for username and password and retrieves a login cookie
+getlist:
+  Retrieves the list of available downloads from your gog account
+list [FILE_LIST]:
+  Lists the files available for download. Acts as a preview for what files 
+  would be downloaded for a certain input. See below for a description of 
+  FILE_LIST
+download [FILE_LIST]:
+  Dowloads the specified file(s). See below for a description of FILE_LIST
+
+The FILE_LIST can take the form of:
+1) @gamename-all to download all files from a certain game, @gamename-setup 
+   for just the setup files or @gamename-extras for just the extras
+2) A full URL of the form http://www.gog.com/en/download/*
+3) An abbreviated url of the form /en/download/*
+
+You will need to run gogdl getlist before @gamename-* can be matched, and of 
+course you'll want to gogdl login before anything else. Example first-time 
+usage:
+
+    gogdl login
+    gogdl getlist
+    gogdl download @the_longest_journey-all
+
+]])
+end
+
+local action = arg[1] or "help"
+if actions[action] then
+  table.remove(arg, 1) -- shift
+  actions[action](arg)
+else
+  err_exit("'%s' is not a recognised action\n", action)
+end
+
