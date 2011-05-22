@@ -52,8 +52,8 @@ to you appended to the wget invocation to download each file (e.g.
 wget is fairly verbose by default so keeps you well informed on what is going 
 on. The `-c` option is passed to wget for downloads so the default behaviour 
 is to resume any download that is incomplete. However if the remote file was 
-updated since the last file was downloaded this will not work and will result 
-in a broken file, as is the case with the other unofficial downloaders.
+updated since the downloaded was first started this will result in a broken 
+file, as is the case with the other unofficial downloaders.
 
 ## Possible future functionality
 I expect I'll implement a `check` action which tells you which of the given 
@@ -62,7 +62,6 @@ local file size (indicating either an incomplete download or that the remote
 updated). It would also be good to investigate the protocol used by the 
 official GOG downloader to see if it's possible to get the checksums used for 
 verifying file integrity. Additionally, the code could be cleaned up.
-cleanup.
 
 ## Alternatives
 These are the other GOG downloader implementations I know of:
