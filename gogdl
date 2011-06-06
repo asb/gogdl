@@ -104,6 +104,7 @@ local function read_available_files()
   return list
 end
 
+-- TODO: this function should probably be renamed
 local function interpret_list(arg, available_files)
   local list = {}
   for _, term in ipairs(arg) do
@@ -186,6 +187,43 @@ actions.list = function(arg)
   if (#arg == 0) then list = available_files end
 
   for _, v in ipairs(list) do print(v) end
+end
+
+-- See if a file with 'filename' exists, and if it does verify that it has the 
+-- desired length. Return a result table in the format:
+-- { match = bool, filename = filename, local_length = length, remote_length = length,
+-- desc = description of problem }
+local function check_local_file(filename, length)
+  -- see if local file exists
+  -- if it doesn't, return results table immediately
+  -- if it does, read its file size
+  -- if file size matches, return success. otherwise, failure
+end
+
+actions.check = function(arg)
+  local available_files = read_available_files()
+  local list = interpret_list(arg, available_files)
+
+  -- err_exit if no files were specified
+
+  for i, url_frag in ipairs(list) do
+    io.stderr:write("\n#### Checking file "..i.."/"..#list.."\n\n")
+    local url = "http://www.gog.com"..url_frag
+
+    io.stderr:write("\n#### Retrieving metadata\n\n")
+    local response = capture('wget -o /dev/stdout --spider --load-cookies="%s" %s | tee /dev/stderr',
+      COOKIE_JAR, url)
+    local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+    print("filename", filename)
+    local length = assert(response:match("\nLength:%s+(%d+)%s+"))
+    print("length", length)
+    -- TODO: accumulate results
+    local result = check_local_file(filename, length)
+    -- print result for this file
+  end
+
+  -- print all successes
+  -- print all failures
 end
 
 actions.help = function(arg)
