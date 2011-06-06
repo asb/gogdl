@@ -11,6 +11,7 @@ local WGET_OPTS = os.getenv("WGET_OPTS") or ""
 ------ Constants you shouldn't change
 local LOGIN_URL="https://www.gog.com/en/login"
 local ACCOUNT_URL = "https://www.gog.com/en/myaccount/"
+local USER_AGENT = "gogdl (github.com/asb/gogdl)"
 
 ------ Generic helpers
 
@@ -77,8 +78,8 @@ actions.login = function(arg)
   cexec("stty echo")
   io.stdout:write("\n")
 
-  cexec('wget -O /dev/null --save-cookie "%s" --post-data "log_email=%s&log_password=%s" "%s"',
-  COOKIE_JAR, url_encode(gog_email), url_encode(gog_pass), LOGIN_URL)
+  cexec('wget -U "%s" -O /dev/null --save-cookie "%s" --post-data "log_email=%s&log_password=%s" "%s"',
+    USER_AGENT, COOKIE_JAR, url_encode(gog_email), url_encode(gog_pass), LOGIN_URL)
   cexec('chmod 600 "%s"', COOKIE_JAR)
   local cookies = assert(io.open(COOKIE_JAR):read("*a"))
   -- Check login was successful by checking for the 'cu' cookie 
@@ -153,20 +154,20 @@ actions.download = function(arg)
     local url = "http://www.gog.com"..url_frag
 
     io.stderr:write("\n#### Retrieving filename\n\n")
-    local response = capture('wget -o /dev/stdout --spider --max-redirect=0 --load-cookies="%s" %s | tee /dev/stderr',
-    COOKIE_JAR, url)
+    local response = capture('wget -U "%s" -o /dev/stdout --spider --max-redirect=0 --load-cookies="%s" %s | tee /dev/stderr',
+      USER_AGENT, COOKIE_JAR, url)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
 
     io.stderr:write("\n#### Downloading file\n\n")
-    cexec('wget -O "%s" %s --load-cookies="%s" -c %s', filename, WGET_OPTS, COOKIE_JAR, url)
+    cexec('wget -U "%s" -O "%s" %s --load-cookies="%s" -c %s', USER_AGENT, filename, WGET_OPTS, COOKIE_JAR, url)
   end
 end
 
 actions.getlist = function(arg)
   -- This just gets the list, and extracts all the urls. Won't do filtering
   io.stderr:write("\n#### Fetching game list\n\n")
-  local content = capture('wget -O - --load-cookies="%s" %s',
-    COOKIE_JAR, ACCOUNT_URL)
+  local content = capture('wget -U "%s" -O - --load-cookies="%s" %s',
+    USER_AGENT, COOKIE_JAR, ACCOUNT_URL)
   local urls = {}
   for url in content:gmatch("(/en/download/%w+/[^\"]+)") do
     urls[#urls+1] = url
@@ -211,8 +212,8 @@ actions.check = function(arg)
     local url = "http://www.gog.com"..url_frag
 
     io.stderr:write("\n#### Retrieving metadata\n\n")
-    local response = capture('wget -o /dev/stdout --spider --load-cookies="%s" %s | tee /dev/stderr',
-      COOKIE_JAR, url)
+    local response = capture('wget -U "%s" -o /dev/stdout --spider --load-cookies="%s" %s | tee /dev/stderr',
+      USER_AGENT, COOKIE_JAR, url)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
     print("filename", filename)
     local length = assert(response:match("\nLength:%s+(%d+)%s+"))
