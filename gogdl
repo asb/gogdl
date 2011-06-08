@@ -190,15 +190,38 @@ actions.list = function(arg)
   for _, v in ipairs(list) do print(v) end
 end
 
+-- checks if file exists, and if it does gets the length
+local function file_exists(filename)
+  local f = io.open(filename, "r")
+  if f then
+    local size = f:seek("end")
+    io.close(f)
+    return true, size
+  else 
+    return false
+  end
+end
+
 -- See if a file with 'filename' exists, and if it does verify that it has the 
 -- desired length. Return a result table in the format:
 -- { match = bool, filename = filename, local_length = length, remote_length = length,
 -- desc = description of problem }
 local function check_local_file(filename, length)
-  -- see if local file exists
-  -- if it doesn't, return results table immediately
-  -- if it does, read its file size
-  -- if file size matches, return success. otherwise, failure
+  local exists, local_length = file_exists(filename)
+  if (exists) then
+    if (local_length == length) then
+      return { match = true, filename = filename, remote_length = length,
+               local_length = length,
+               desc = "Success - local and remote length match"}
+    else
+      return { match = false, filename = filename, remote_length = length,
+               local_length = length, desc = "Local file has different length to remote"}
+    end
+  else
+    return { match = false, filename = filename, remote_length = length,
+             desc = "No local file exists with that name" }
+  end
+
 end
 
 actions.check = function(arg)
@@ -207,6 +230,7 @@ actions.check = function(arg)
 
   -- err_exit if no files were specified
 
+  local results = {}
   for i, url_frag in ipairs(list) do
     io.stderr:write("\n#### Checking file "..i.."/"..#list.."\n\n")
     local url = "http://www.gog.com"..url_frag
@@ -215,16 +239,33 @@ actions.check = function(arg)
     local response = capture('wget -U "%s" -o /dev/stdout --spider --load-cookies="%s" %s | tee /dev/stderr',
       USER_AGENT, COOKIE_JAR, url)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
-    print("filename", filename)
     local length = assert(response:match("\nLength:%s+(%d+)%s+"))
-    print("length", length)
     -- TODO: accumulate results
-    local result = check_local_file(filename, length)
-    -- print result for this file
+    local result = check_local_file(filename, tonumber(length))
+    results[#results+1] = result
+    if result.match then
+      print(("SUCCESS: local file %s has length %d identical to remote"):format(
+        result.filename, result.remote_length))
+    else
+      print(("FAILURE: %s - %s"):format(result.filename, result.desc))
+    end
   end
 
   -- print all successes
+  print("\n\n")
+  print("## CHECK RESULTS")
+  for _, result in ipairs(results) do
+    if result.match then
+      print(("SUCCESS: local file %s has length %d identical to remote"):format(
+        result.filename, result.remote_length))
+    end
+  end
   -- print all failures
+  for _, result in ipairs(results) do
+    if not result.match then
+      print(("FAILURE: %s - %s"):format(result.filename, result.desc))
+    end
+  end
 end
 
 actions.help = function(arg)
