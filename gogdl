@@ -285,6 +285,11 @@ list [FILE_LIST]:
   FILE_LIST
 download [FILE_LIST]:
   Dowloads the specified file(s). See below for a description of FILE_LIST
+check [FILE_LIST]:
+  Querys the GOG download servers for the size of the specified file(s) and 
+  verifies that a local file with the correct filename exists, and that the 
+  length matches. Prints a summary of those files which match and those which 
+  do not.
 
 The FILE_LIST can take the form of:
 1) @gamename-all to download all files from a certain game, @gamename-setup 
