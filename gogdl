@@ -65,6 +65,13 @@ end
 -- Ensure the config dir has been created
 cexec('mkdir -p "%s"', CONFIG_DIR)
 
+------ wget helpers
+local wget = {}
+function wget.download_file(url, dest, exec_func)
+  return exec_func('wget %s -U "%s" -O "%s" --load-cookies="%s" -c %s',
+    WGET_OPTS, USER_AGENT, dest, COOKIE_JAR, url)
+end
+
 
 ------ gogdl implementation
 local actions = {}
@@ -159,15 +166,14 @@ actions.download = function(arg)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
 
     io.stderr:write("\n#### Downloading file\n\n")
-    cexec('wget -U "%s" -O "%s" %s --load-cookies="%s" -c %s', USER_AGENT, filename, WGET_OPTS, COOKIE_JAR, url)
+    wget.download_file(url, filename, cexec)
   end
 end
 
 actions.getlist = function(arg)
   -- This just gets the list, and extracts all the urls. Won't do filtering
   io.stderr:write("\n#### Fetching game list\n\n")
-  local content = capture('wget -U "%s" -O - --load-cookies="%s" %s',
-    USER_AGENT, COOKIE_JAR, ACCOUNT_URL)
+  local content = wget.download_file(ACCOUNT_URL, "-", capture)
   local urls = {}
   for url in content:gmatch("(/en/download/%w+/[^\"]+)") do
     urls[#urls+1] = url
