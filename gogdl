@@ -72,6 +72,12 @@ function wget.download_file(url, dest, exec_func)
     WGET_OPTS, USER_AGENT, dest, COOKIE_JAR, url)
 end
 
+function wget.get_metadata(url, disable_redirect)
+  local redirect_opt = disable_redirect and "--max-redirect=0" or ""
+  return capture('wget %s -U "%s" -o /dev/stdout --spider %s --load-cookies="%s" %s | tee /dev/stderr',
+    WGET_OPTS, USER_AGENT, redirect_opt, COOKIE_JAR, url)
+end
+
 
 ------ gogdl implementation
 local actions = {}
@@ -161,8 +167,7 @@ actions.download = function(arg)
     local url = "http://www.gog.com"..url_frag
 
     io.stderr:write("\n#### Retrieving filename\n\n")
-    local response = capture('wget -U "%s" -o /dev/stdout --spider --max-redirect=0 --load-cookies="%s" %s | tee /dev/stderr',
-      USER_AGENT, COOKIE_JAR, url)
+    local response = wget.get_metadata(url, true)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
 
     io.stderr:write("\n#### Downloading file\n\n")
@@ -242,8 +247,7 @@ actions.check = function(arg)
     local url = "http://www.gog.com"..url_frag
 
     io.stderr:write("\n#### Retrieving metadata\n\n")
-    local response = capture('wget -U "%s" -o /dev/stdout --spider --load-cookies="%s" %s | tee /dev/stderr',
-      USER_AGENT, COOKIE_JAR, url)
+    local response = wget.get_metadata(url, false)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
     local length = assert(response:match("\nLength:%s+(%d+)%s+"))
     -- TODO: accumulate results
