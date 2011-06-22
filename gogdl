@@ -68,13 +68,13 @@ cexec('mkdir -p "%s"', CONFIG_DIR)
 ------ wget helpers
 local wget = {}
 function wget.download_file(url, dest, exec_func)
-  return exec_func('wget %s -U "%s" -O "%s" --load-cookies="%s" -c %s',
+  return exec_func('wget %s -U "%s" -O "%s" --load-cookies="%s" -c "%s"',
     WGET_OPTS, USER_AGENT, dest, COOKIE_JAR, url)
 end
 
 function wget.get_metadata(url, disable_redirect)
   local redirect_opt = disable_redirect and "--max-redirect=0" or ""
-  return capture('wget %s -U "%s" -o /dev/stdout --spider %s --load-cookies="%s" %s | tee /dev/stderr',
+  return capture('wget %s -U "%s" -o /dev/stdout --spider %s --load-cookies="%s" "%s" | tee /dev/stderr',
     WGET_OPTS, USER_AGENT, redirect_opt, COOKIE_JAR, url)
 end
 
@@ -133,7 +133,10 @@ local function interpret_list(arg, available_files)
     elseif term:match("^@") then
       local add_setup = (term:match("%-all$") or term:match("%-setup")) and true or false
       local add_extras = (term:match("%-all$") or term:match("%-extras")) and true or false
-      if (not add_setup and not add_extras) then err_exit("Error: @-style specifiers must end in -all, -setup, or -extras but '%s' does not\n", term) end
+      local add_checksums = (term:match("%-all") or term:match("%-checksums")) and true or false
+      if (not add_setup and not add_extras and not add_checksums) then
+        err_exit("Error: @-style specifiers must end in -all, -setup, or -extras but '%s' does not\n", term)
+      end
       local gamename = term:match("^@([%w_]+)%-")
       local had_a_match = false
       for _, file_url in ipairs(available_files) do
@@ -143,6 +146,13 @@ local function interpret_list(arg, available_files)
         elseif (add_extras and file_url:match("file/"..gamename.."/[%d]+$")) then
           had_a_match = true
           list[#list+1] = file_url
+        end
+
+        -- currently checksums are only available for game setup files
+        if (add_checksums and file_url:match("game/"..gamename.."/[%d]+$")) then
+          had_a_match = true
+          -- prepend the url with @checksums as it must be treated specially
+          list[#list+1] = "@checksums"..file_url
         end
       end
 
@@ -164,15 +174,26 @@ actions.download = function(arg)
 
   for i, url_frag in ipairs(list) do
     io.stderr:write("\n#### Downloading file "..i.."/"..#list.."\n\n")
+    local is_checksum = url_frag:match("^@checksums")
+    url_frag = url_frag:match("^@checksums(.*)$") or url_frag -- remove @checksums if necessary
     local url = "http://www.gog.com"..url_frag
 
     io.stderr:write("\n#### Retrieving filename\n\n")
     local response = wget.get_metadata(url, true)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+    if is_checksum then
+      -- append .xml to the target filename and modify the target of the 
+      -- redirect appropriately
+      filename = filename..".xml"
+      local dest_url = response:match("\nLocation:%s+(http://[^%s]+)")
+      dest_url = dest_url:gsub("%?", ".xml?", 1)
+      url = dest_url
+    end
 
     io.stderr:write("\n#### Downloading file\n\n")
     wget.download_file(url, filename, cexec)
   end
+  io.stderr:write("\n#### Downloading complete\n\n")
 end
 
 actions.getlist = function(arg)
@@ -244,20 +265,23 @@ actions.check = function(arg)
   local results = {}
   for i, url_frag in ipairs(list) do
     io.stderr:write("\n#### Checking file "..i.."/"..#list.."\n\n")
-    local url = "http://www.gog.com"..url_frag
-
-    io.stderr:write("\n#### Retrieving metadata\n\n")
-    local response = wget.get_metadata(url, false)
-    local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
-    local length = assert(response:match("\nLength:%s+(%d+)%s+"))
-    -- TODO: accumulate results
-    local result = check_local_file(filename, tonumber(length))
-    results[#results+1] = result
-    if result.match then
-      print(("SUCCESS: local file %s has length %d identical to remote"):format(
-        result.filename, result.remote_length))
+    if (url_frag:match("^@checksums")) then
+      io.stderr:write("'check' is not currently supported for checksums. Skipping.\n");
     else
-      print(("FAILURE: %s - %s"):format(result.filename, result.desc))
+      local url = "http://www.gog.com"..url_frag
+
+      io.stderr:write("\n#### Retrieving metadata\n\n")
+      local response = wget.get_metadata(url, false)
+      local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+      local length = assert(response:match("\nLength:%s+(%d+)%s+"))
+      local result = check_local_file(filename, tonumber(length))
+      results[#results+1] = result
+      if result.match then
+        print(("SUCCESS: local file %s has length %d identical to remote"):format(
+        result.filename, result.remote_length))
+      else
+        print(("FAILURE: %s - %s"):format(result.filename, result.desc))
+      end
     end
   end
 
@@ -303,7 +327,9 @@ check [FILE_LIST]:
 
 The FILE_LIST can take the form of:
 1) @gamename-all to download all files from a certain game, @gamename-setup 
-   for just the setup files or @gamename-extras for just the extras
+   for just the setup files, @gamename-extras for just the extras, and 
+   @gamename-checksums for just the .xml files containing checksums for each 
+   setup file.
 2) A full URL of the form http://www.gog.com/en/download/*
 3) An abbreviated url of the form /en/download/*
 

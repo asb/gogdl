@@ -6,7 +6,8 @@ gogdl is an unofficial downloader for games (both the setup files and the
 written in Lua, though acts as just a thin wrapper around wget which does all 
 the heavy lifting. I wrote it mainly for my own use, though others may find it 
 helpful if not already satisfied by one of the many alternatives (listed 
-below).
+below). It also supports retrieval of the XML files which contain md5sums for 
+each setup file, as used by the official GOG downloader.
 
 ## Requirements
 wget and Lua 5.1.
@@ -38,17 +39,20 @@ started):
 
     The FILE_LIST can take the form of:
     1) @gamename-all to download all files from a certain game, @gamename-setup 
-       for just the setup files or @gamename-extras for just the extras
+       for just the setup files, @gamename-extras for just the extras, and 
+       @gamename-checksums for just the .xml files containing checksums for each 
+       setup file.
     2) A full URL of the form http://www.gog.com/en/download/*
     3) An abbreviated url of the form /en/download/*
 
-    You will need to run gogdl getlist before @gamename-* can be matched, and 
-    of course you'll want to gogdl login before anything else. Example 
-    first-time usage:
+    You will need to run gogdl getlist before @gamename-* can be matched, and of 
+    course you'll want to gogdl login before anything else. Example first-time 
+    usage:
 
-    gogdl login
-    gogdl getlist
-    gogdl download @the_longest_journey-all
+        gogdl login
+        gogdl getlist
+        gogdl download @the_longest_journey-all
+
 
 You can also set the environment variable `WGET_OPTS` to specify extra options 
 to you appended to the wget invocation to download each file (e.g.  
@@ -61,12 +65,11 @@ updated since the downloaded was first started this will result in a broken
 file, as is the case with the other unofficial downloaders.
 
 ## Possible future functionality
-I expect I'll implement a `check` action which tells you which of the given 
-files you either don't have, or where the remote size is different to the 
-local file size (indicating either an incomplete download or that the remote 
-updated). It would also be good to investigate the protocol used by the 
-official GOG downloader to see if it's possible to get the checksums used for 
-verifying file integrity. Additionally, the code could be cleaned up.
+Downloading the .xml files which contain md5 sums for the setup files (as used 
+by the official downloader) is supported, but checking is not. In addition to 
+checking the file as a whole, it would be nice to use the md5s given for each 
+individual chunk so that if the file does not match the location of the error 
+can be better pinpointed. The code could be cleaned up some more.
 
 ## Alternatives
 These are the other GOG downloader implementations I know of:
