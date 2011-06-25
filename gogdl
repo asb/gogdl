@@ -260,7 +260,7 @@ actions.check = function(arg)
   local available_files = read_available_files()
   local list = interpret_list(arg, available_files)
 
-  -- err_exit if no files were specified
+  -- TODO err_exit if no files were specified
 
   local results = {}
   for i, url_frag in ipairs(list) do
@@ -302,6 +302,41 @@ actions.check = function(arg)
   end
 end
 
+actions.checksum = function(arg)
+  local gen_md5 = arg[1] == "--convert"
+  if gen_md5 then table.remove(arg, 1) end
+
+  -- TODO: err_exit if there are no files
+  local function process_filename(filename)
+    local f, err = io.open(filename, "r")
+    if not f then return nil, err end
+    if not (f:read(5) == "<file") then
+      f:close()
+      return nil, "file in unrecognised format. Does not start with <file"
+    end
+    local line = f:read("*l")
+    local target_name, target_md5 = line:match('name%s*=%s*"([^"]+)".*md5%s*=%s*"([^"]+)"')
+    f:close()
+    if (not target_name or not target_md5) then
+      return nil, "failed to extract target filename and md5"
+    end
+
+    local target_path = filename:gsub("([^/]*)$", "", 1)
+    if (not gen_md5) then -- actually perform the check
+      local succ, cmd = exec("echo %s  \" %s%s\" | md5sum -c -", target_md5, target_path, target_name)
+      if not succ then return nil, "md5sum failed" end
+    else -- generate md5 file for stdout
+      io.stdout:write(("%s  %s%s\n"):format(target_md5, target_path, target_name))
+    end
+    return true
+  end
+
+  for _, filename in ipairs(arg) do
+    local succ, err = process_filename(filename)
+    if not succ then io.stderr:write("Failed to process `", filename, "`: ", err, "\n") end
+  end
+end
+
 actions.help = function(arg)
   io.stderr:write([[
 Usage: gogdl ACTION [ARGS...]
@@ -324,6 +359,13 @@ check [FILE_LIST]:
   verifies that a local file with the correct filename exists, and that the 
   length matches. Prints a summary of those files which match and those which 
   do not.
+checksum [XML_FILES]:
+  Given a list of files containing md5 data in the XML format GOG uses, 
+  extract the checksum for each file and check it. Input XML files can be 
+  obtained using `gogdl download @gamename-checksums`. It is assumed that the 
+  file described by the XML input is in the same folder as that input. i.e. 
+  `gogdl checksumm gamename/setup_gamename.exe.xml` will look for 
+  `gamename/setup_gamename.exe` to verify its md5 sum.
 
 The FILE_LIST can take the form of:
 1) @gamename-all to download all files from a certain game, @gamename-setup 
