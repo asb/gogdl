@@ -220,8 +220,24 @@ end
 
 actions.list = function(arg)
   local available_files = read_available_files()
-  local list = user_input_to_urls(arg, available_files)
-  if (#arg == 0) then list = available_files end
+  local list = {}
+
+  if (#arg == 0) then
+    -- just show game names
+    local seen = {}
+    for _, frag in ipairs(available_files) do
+      local gamename = frag:match("game/([%w_]+)/")
+      if (gamename and not seen[gamename]) then
+        seen[gamename] = true
+        list[#list+1] = gamename
+      end
+    end
+  elseif (#arg == 1 and arg[1] == "--all") then
+    list = available_files
+    table.remove(arg, 1) -- shift
+  else
+    list = user_input_to_urls(arg, available_files)
+  end
 
   for _, v in ipairs(list) do print(v) end
 end
@@ -272,6 +288,7 @@ actions.check = function(arg)
   for i, url_frag in ipairs(list) do
     io.stderr:write("\n#### Checking file "..i.."/"..#list.."\n\n")
     if (url_frag:match("^@checksums")) then
+      -- TODO
       io.stderr:write("'check' is not currently supported for checksums. Skipping.\n");
     else
       local url = "http://www.gog.com"..url_frag
@@ -356,10 +373,12 @@ login:
   Prompts for username and password and retrieves a login cookie
 getlist:
   Retrieves the list of available downloads from your gog account
-list [FILE_LIST]:
-  Lists the files available for download. Acts as a preview for what files 
-  would be downloaded for a certain input. See below for a description of 
-  FILE_LIST
+list [--all | FILE_LIST]:
+  With no arguments, gives a list of the game names available to download. 
+  When given `--all` will list all available URL fragments (i.e. setup and 
+  extra files). Can also be given arguments as taken by `gogdl download` to 
+  act as a preview for what files would be downloaded. See below for a 
+  description of FILE_LIST
 download [FILE_LIST]:
   Dowloads the specified file(s). See below for a description of FILE_LIST
 check [FILE_LIST]:

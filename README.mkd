@@ -26,10 +26,12 @@ started):
       Prompts for username and password and retrieves a login cookie
     getlist:
       Retrieves the list of available downloads from your gog account
-    list [FILE_LIST]:
-      Lists the files available for download. Acts as a preview for what files 
-      would be downloaded for a certain input. See below for a description of 
-      FILE_LIST
+    list [--all | FILE_LIST]:
+      With no arguments, gives a list of the game names available to download. 
+      When given `--all` will list all available URL fragments (i.e. setup and 
+      extra files). Can also be given arguments as taken by `gogdl download` to 
+      act as a preview for what files would be downloaded. See below for a 
+      description of FILE_LIST
     download [FILE_LIST]:
       Dowloads the specified file(s). See below for a description of FILE_LIST
     check [FILE_LIST]:
