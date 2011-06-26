@@ -37,13 +37,16 @@ started):
       verifies that a local file with the correct filename exists, and that the 
       length matches. Prints a summary of those files which match and those which 
       do not.
-    checksum [XML_FILES]:
+    checksum [--convert] [XML_FILES]:
       Given a list of files containing md5 data in the XML format GOG uses, 
       extract the checksum for each file and check it. Input XML files can be 
       obtained using `gogdl download @gamename-checksums`. It is assumed that the 
       file described by the XML input is in the same folder as that input. i.e. 
       `gogdl checksumm gamename/setup_gamename.exe.xml` will look for 
-      `gamename/setup_gamename.exe` to verify its md5 sum.
+      `gamename/setup_gamename.exe` to verify its md5 sum. If `--convert` is 
+      specified, then checksums for each file will be extracted from the .xml 
+      files and output to stdout in a form that can be recognised by coreutils 
+      md5sum.
 
     The FILE_LIST can take the form of:
     1) @gamename-all to download all files from a certain game, @gamename-setup 
@@ -60,6 +63,7 @@ started):
         gogdl login
         gogdl getlist
         gogdl download @the_longest_journey-all
+        gogdl checksum setup_tlj.exe.xml
 
 You can also set the environment variable `WGET_OPTS` to specify extra options 
 to you appended to the wget invocation to download each file (e.g.  
