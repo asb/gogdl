@@ -118,8 +118,7 @@ local function read_available_files()
   return list
 end
 
--- TODO: this function should probably be renamed
-local function interpret_list(arg, available_files)
+local function user_input_to_urls(arg, available_files)
   local list = {}
   for _, term in ipairs(arg) do
     if term:match("^https?://") then
@@ -168,7 +167,7 @@ end
 
 actions.download = function(arg)
   local available_files = read_available_files()
-  local list = interpret_list(arg, available_files)
+  local list = user_input_to_urls(arg, available_files)
   if (#list == 0) then err_exit("error: no download url specified\n") end
   io.stderr:write("\n#### Downloading "..#list.." files\n\n")
 
@@ -216,7 +215,7 @@ end
 
 actions.list = function(arg)
   local available_files = read_available_files()
-  local list = interpret_list(arg, available_files)
+  local list = user_input_to_urls(arg, available_files)
   if (#arg == 0) then list = available_files end
 
   for _, v in ipairs(list) do print(v) end
@@ -258,7 +257,7 @@ end
 
 actions.check = function(arg)
   local available_files = read_available_files()
-  local list = interpret_list(arg, available_files)
+  local list = user_input_to_urls(arg, available_files)
 
   -- TODO err_exit if no files were specified
 
