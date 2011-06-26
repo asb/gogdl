@@ -134,7 +134,8 @@ local function user_input_to_urls(arg, available_files)
       local add_extras = (term:match("%-all$") or term:match("%-extras")) and true or false
       local add_checksums = (term:match("%-all") or term:match("%-checksums")) and true or false
       if (not add_setup and not add_extras and not add_checksums) then
-        err_exit("Error: @-style specifiers must end in -all, -setup, or -extras but '%s' does not\n", term)
+        err_exit("Error: @-style specifiers must end in -all, -setup, -extras,"..
+          "or -checksums but '%s' does not\n", term)
       end
       local gamename = term:match("^@([%w_]+)%-")
       local had_a_match = false
@@ -155,7 +156,11 @@ local function user_input_to_urls(arg, available_files)
         end
       end
 
-      if not had_a_match then err_exit("Error: Got no matches for '%s'. Try gogdl getlist, and if that is already up to date perhaps you don't own the game\n", term) end
+      if not had_a_match then
+        err_exit("Error: Got no matches for '%s'. Try gogdl getlist,"..
+          "and if that is already up to date perhaps you don't own the game\n", term)
+      end
+
     else
       err_exit("Error: Input '%s' is not recognised as a valid filter type\n", term)
     end
@@ -259,7 +264,9 @@ actions.check = function(arg)
   local available_files = read_available_files()
   local list = user_input_to_urls(arg, available_files)
 
-  -- TODO err_exit if no files were specified
+  if (#list == 0) then
+    err_exit("No recognised game files to perform check on. See `gogdl help` for usage.\n")
+  end
 
   local results = {}
   for i, url_frag in ipairs(list) do
@@ -305,7 +312,9 @@ actions.checksum = function(arg)
   local gen_md5 = arg[1] == "--convert"
   if gen_md5 then table.remove(arg, 1) end
 
-  -- TODO: err_exit if there are no files
+  if (#arg == 0) then
+    err_exit("gogdl checksum requires arguments. See `gogdl help` for usage.\n")
+  end
   local function process_filename(filename)
     local f, err = io.open(filename, "r")
     if not f then return nil, err end
