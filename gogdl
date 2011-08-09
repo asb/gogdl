@@ -169,6 +169,13 @@ local function user_input_to_urls(arg, available_files)
   return uniq_list
 end
 
+local function get_checksum_filename_and_url(filename, response)
+  -- append .xml to the target filename and modify the target of the 
+  -- redirect appropriately
+  local dest_url = response:match("\nLocation:%s+(http://[^%s]+)")
+  dest_url = dest_url:gsub("%?", ".xml?", 1)
+  return filename..".xml", dest_url
+end
 
 actions.download = function(arg)
   local available_files = read_available_files()
@@ -186,12 +193,7 @@ actions.download = function(arg)
     local response = wget.get_metadata(url, true)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
     if is_checksum then
-      -- append .xml to the target filename and modify the target of the 
-      -- redirect appropriately
-      filename = filename..".xml"
-      local dest_url = response:match("\nLocation:%s+(http://[^%s]+)")
-      dest_url = dest_url:gsub("%?", ".xml?", 1)
-      url = dest_url
+      filename, url = get_checksum_filename_and_url(filename, response)
     end
 
     io.stderr:write("\n#### Downloading file\n\n")
@@ -287,24 +289,30 @@ actions.check = function(arg)
   local results = {}
   for i, url_frag in ipairs(list) do
     io.stderr:write("\n#### Checking file "..i.."/"..#list.."\n\n")
-    if (url_frag:match("^@checksums")) then
-      -- TODO
-      io.stderr:write("'check' is not currently supported for checksums. Skipping.\n");
-    else
-      local url = "http://www.gog.com"..url_frag
+    local url = "http://www.gog.com"..url_frag
 
-      io.stderr:write("\n#### Retrieving metadata\n\n")
-      local response = wget.get_metadata(url, false)
-      local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
-      local length = assert(response:match("\nLength:%s+(%d+)%s+"))
-      local result = check_local_file(filename, tonumber(length))
-      results[#results+1] = result
-      if result.match then
-        print(("SUCCESS: local file %s has length %d identical to remote"):format(
-        result.filename, result.remote_length))
-      else
-        print(("FAILURE: %s - %s"):format(result.filename, result.desc))
-      end
+    local filename
+
+    if (url_frag:match("^@checksums")) then
+      url_frag = url_frag:match("^@checksums(.*)$") -- remove @checksums
+      url = "http://www.gog.com"..url_frag
+      local response = wget.get_metadata(url, true)
+      filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+      filename, url = get_checksum_filename_and_url(filename, response)
+    end
+
+    io.stderr:write("\n#### Retrieving metadata\n\n")
+    local response = wget.get_metadata(url, false)
+    -- don't need to extract the filename if operating on a checksum file
+    filename = filename or assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
+    local length = assert(response:match("\nLength:%s+(%d+)%s+"))
+    local result = check_local_file(filename, tonumber(length))
+    results[#results+1] = result
+    if result.match then
+      print(("SUCCESS: local file %s has length %d identical to remote"):format(
+      result.filename, result.remote_length))
+    else
+      print(("FAILURE: %s - %s"):format(result.filename, result.desc))
     end
   end
 
