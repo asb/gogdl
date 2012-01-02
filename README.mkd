@@ -32,8 +32,10 @@ started):
       extra files). Can also be given arguments as taken by `gogdl download` to 
       act as a preview for what files would be downloaded. See below for a 
       description of FILE_LIST
-    download [FILE_LIST]:
-      Dowloads the specified file(s). See below for a description of FILE_LIST
+    download [-D] [FILE_LIST]:
+      Dowloads the specified file(s). See below for a description of FILE_LIST. If 
+      the `-D` option is given then all game files are downloaded to an 
+      appropriately named subdirectory (which is created if necessary).
     check [FILE_LIST]:
       Querys the GOG download servers for the size of the specified file(s) and 
       verifies that a local file with the correct filename exists, and that the 
@@ -58,9 +60,9 @@ started):
     2) A full URL of the form http://www.gog.com/en/download/*
     3) An abbreviated url of the form /en/download/*
 
-    You will need to run gogdl getlist before @gamename-* can be matched, and of 
-    course you'll want to gogdl login before anything else. Example first-time 
-    usage:
+    You will need to run gogdl getlist before @gamename-* can be matched, and
+    of course you'll want to gogdl login before anything else. Example
+    first-time usage:
 
         gogdl login
         gogdl getlist

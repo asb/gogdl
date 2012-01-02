@@ -178,6 +178,14 @@ local function get_checksum_filename_and_url(filename, response)
 end
 
 actions.download = function(arg)
+  local download_to_subdir = false
+  for i, str in ipairs(arg) do
+    if (str == "-D") then
+      download_to_subdir = true
+      table.remove(arg, i)
+      break
+    end
+  end
   local available_files = read_available_files()
   local list = user_input_to_urls(arg, available_files)
   if (#list == 0) then err_exit("error: no download url specified\n") end
@@ -194,6 +202,15 @@ actions.download = function(arg)
     local filename = assert(response:match("\nLocation:%s+http://.*/([^?]+)%?"), "failed to extract filename")
     if is_checksum then
       filename, url = get_checksum_filename_and_url(filename, response)
+    end
+
+    if (download_to_subdir) then
+      local gamename = url_frag:match("game/([%w_]+)/") or url_frag:match("file/([%w_]+)/")
+      if (not gamename) then
+        err_exit("failed to extract game name from url fragment '%s'\n", url_frag)
+      end
+      cexec('mkdir -p "%s"', gamename)
+      filename = gamename.."/"..filename
     end
 
     io.stderr:write("\n#### Downloading file\n\n")
@@ -387,8 +404,10 @@ list [--all | FILE_LIST]:
   extra files). Can also be given arguments as taken by `gogdl download` to 
   act as a preview for what files would be downloaded. See below for a 
   description of FILE_LIST
-download [FILE_LIST]:
-  Dowloads the specified file(s). See below for a description of FILE_LIST
+download [-D] [FILE_LIST]:
+  Dowloads the specified file(s). See below for a description of FILE_LIST. If 
+  the `-D` option is given then all game files are downloaded to an 
+  appropriately named subdirectory (which is created if necessary).
 check [FILE_LIST]:
   Querys the GOG download servers for the size of the specified file(s) and 
   verifies that a local file with the correct filename exists, and that the 
