@@ -9,7 +9,7 @@ local FILE_LIST = CONFIG_DIR.."/available_files"
 local WGET_OPTS = os.getenv("WGET_OPTS") or ""
 
 ------ Constants you shouldn't change
-local LOGIN_URL="https://www.gog.com/en/login"
+local LOGIN_URL="https://www.gog.com/en/login/"
 local ACCOUNT_URL = "https://www.gog.com/en/myaccount/"
 local USER_AGENT = "gogdl (github.com/asb/gogdl)"
 
@@ -36,7 +36,7 @@ local function cexec(command, ...)
 end
 
 function url_encode(s)
-  s = string.gsub(s, "([&=+%c])", function (c)
+  s = string.gsub(s, "([@&=+%c])", function (c)
     return string.format("%%%02X", string.byte(c))
   end)
   s = string.gsub(s, " ", "+")
@@ -95,8 +95,9 @@ actions.login = function(arg)
     USER_AGENT, COOKIE_JAR, url_encode(gog_email), url_encode(gog_pass), LOGIN_URL)
   cexec('chmod 600 "%s"', COOKIE_JAR)
   local cookies = assert(io.open(COOKIE_JAR):read("*a"))
-  -- Check login was successful by checking for the 'cu' cookie 
-  if (cookies:match("cu%s+[%w%%]+%n")) then
+  -- Check login was successful by checking the guc_al cookie is non-zero
+  local guc_al = cookies:match("guc_al%s+([%w%%]+)")
+  if (guc_al and guc_al ~= "0") then
     print("Login success")
     os.exit(0)
   else
