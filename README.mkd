@@ -95,6 +95,7 @@ These are the other GOG downloader implementations I know of:
 Written in Perl.
 * [GoGDownloader.sh](http://www.gog.com/en/forum/general/a_linux_downloader/page1)
 * [GOGDownloader (C++)](http://www.gog.com/en/forum/general/simple_gogdownloader_written_in_c)
+* [gog-backup](https://github.com/evanpowers/gog-backup) Written in Python.
 
 # Contact
 
